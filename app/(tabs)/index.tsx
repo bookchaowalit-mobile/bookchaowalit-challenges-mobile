@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { Ionicons } from "@expo/vector-icons";
 import {
   currentStreak,
+  isChallenge,
   isComplete,
   longestStreak,
   progress,
@@ -11,6 +12,10 @@ import {
   validateChallenge,
   type Challenge,
 } from "../../lib/challenges";
+import { listCodec } from "../../lib/persist";
+import { usePersistentState } from "../../lib/usePersistentState";
+
+const challengesCodec = listCodec(isChallenge);
 
 function todayKey(): string {
   const d = new Date();
@@ -19,7 +24,12 @@ function todayKey(): string {
 
 export default function ChallengesScreen() {
   const today = todayKey();
-  const [challenges, setChallenges] = useState<Challenge[]>(() => sampleChallenges(today));
+  const [challenges, setChallenges] = usePersistentState<Challenge[]>(
+    "challenges.list.v1",
+    sampleChallenges(today),
+    challengesCodec,
+  );
+
   const [name, setName] = useState("");
   const [target, setTarget] = useState("30");
   const [error, setError] = useState<string | null>(null);

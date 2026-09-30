@@ -79,3 +79,22 @@ export function sampleChallenges(today: string): Challenge[] {
     { id: "ch3", name: "No sugar week", targetDays: 7, checkIns: [] },
   ];
 }
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Type guard used when loading challenges from local storage. */
+export function isChallenge(value: unknown): value is Challenge {
+  if (typeof value !== "object" || value === null) return false;
+  const c = value as Record<string, unknown>;
+  return (
+    typeof c.id === "string" &&
+    typeof c.name === "string" &&
+    c.name.trim().length > 0 &&
+    typeof c.targetDays === "number" &&
+    Number.isInteger(c.targetDays) &&
+    c.targetDays > 0 &&
+    Array.isArray(c.checkIns) &&
+    c.checkIns.every((d) => typeof d === "string" && DATE_KEY.test(d)) &&
+    new Set(c.checkIns).size === c.checkIns.length
+  );
+}
