@@ -48,3 +48,11 @@ Score: 7/10 (was 6/10) — challenges and check-ins now survive restarts (streak
 - Accessibility: profile links get link roles (check-in/delete buttons were already labelled).
 - Advisories: `overrides.postcss ^8.5.28` clears the high-severity PostCSS advisory in Expo metro-config (minor bump). Remaining `image-size` (metro, bundler-only), `uuid` (via `xcode`) and `decode-uri-component` (via `query-string@7`) need an Expo SDK major upgrade; deliberately not auto-fixed.
 - Verified: typecheck, lint, 17 vitest tests, Android `expo export` bundle.
+
+## Done in this pass (pass 3)
+
+Score: 7.5/10 (was 7/10) — edge-case hunt in `lib/challenges.ts`; streak maths held up (UTC key arithmetic survives DST, month and leap-year ends — now covered by tests).
+
+- Bug: the target-days field rejected full-width digits ("３０") from CJK keyboards, and validation and saving parsed the text separately; both now use `parseTargetDays` (NFKC, rejects hex/exponent/decimal-comma).
+- "0/1 days" → `progressLabel` pluralises.
+- Verified: typecheck, lint, 20 vitest tests, Android `expo export`.

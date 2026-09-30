@@ -8,8 +8,7 @@ import {
   shiftDay,
   toggleCheckIn,
   validateChallenge,
-  type Challenge,
-} from "./challenges";
+  type Challenge, parseTargetDays, progressLabel } from "./challenges";
 
 const T = "2025-03-01";
 
@@ -66,5 +65,24 @@ describe("validation and samples", () => {
     const [pushups, reading] = sampleChallenges(T);
     expect(currentStreak(pushups.checkIns, T)).toBe(6);
     expect(currentStreak(reading.checkIns, T)).toBe(4);
+  });
+});
+
+describe("pass 3 edge cases", () => {
+  it("accepts full-width digits for the target and stores the same number", () => {
+    expect(validateChallenge("Run", "\uFF13\uFF10")).toBeNull();
+    expect(parseTargetDays("\uFF13\uFF10")).toBe(30);
+    expect(parseTargetDays("0x1E")).toBeNaN();
+    expect(parseTargetDays("1e2")).toBeNaN();
+    expect(parseTargetDays("7,5")).toBeNaN();
+  });
+  it("pluralises the progress label", () => {
+    expect(progressLabel({ id: "a", name: "x", targetDays: 1, checkIns: [] })).toBe("0/1 day");
+    expect(progressLabel({ id: "a", name: "x", targetDays: 30, checkIns: ["2025-01-01"] })).toBe("1/30 days");
+  });
+  it("keeps streaks across a DST change and month/year ends", () => {
+    expect(currentStreak(["2025-03-29", "2025-03-30", "2025-03-31"], "2025-03-31")).toBe(3);
+    expect(currentStreak(["2024-12-31", "2025-01-01"], "2025-01-01")).toBe(2);
+    expect(longestStreak(["2024-02-28", "2024-02-29", "2024-03-01"])).toBe(3);
   });
 });

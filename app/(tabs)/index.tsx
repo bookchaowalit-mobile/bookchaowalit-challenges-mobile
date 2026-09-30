@@ -6,7 +6,9 @@ import {
   isChallenge,
   isComplete,
   longestStreak,
+  parseTargetDays,
   progress,
+  progressLabel,
   sampleChallenges,
   toggleCheckIn,
   validateChallenge,
@@ -40,7 +42,7 @@ export default function ChallengesScreen() {
     const problem = validateChallenge(name, target);
     setError(problem);
     if (problem) return;
-    setChallenges([...challenges, { id: `${Date.now()}`, name: name.trim(), targetDays: Number(target.trim()), checkIns: [] }]);
+    setChallenges([...challenges, { id: `${Date.now()}`, name: name.trim(), targetDays: parseTargetDays(target), checkIns: [] }]);
     setName("");
   };
 
@@ -93,7 +95,7 @@ export default function ChallengesScreen() {
               <View style={[styles.fill, { width: `${pct * 100}%` }]} />
             </View>
             <Text style={styles.meta}>
-              {new Set(item.checkIns).size}/{item.targetDays} days · 🔥 {streak} day streak · best {longestStreak(item.checkIns)}
+              {progressLabel(item)} · 🔥 {streak} day streak · best {longestStreak(item.checkIns)}
             </Text>
             <View style={styles.row}>
               <Pressable

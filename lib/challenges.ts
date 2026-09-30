@@ -63,12 +63,27 @@ export function toggleCheckIn(challenge: Challenge, day: string): Challenge {
   };
 }
 
+/**
+ * Parse the target-days field. Full-width digits from CJK keyboards are
+ * normalised (NFKC); anything else that is not a plain whole number is NaN.
+ */
+export function parseTargetDays(text: string): number {
+  const t = text.normalize("NFKC").trim();
+  return /^\d+$/.test(t) ? Number(t) : NaN;
+}
+
 export function validateChallenge(name: string, targetDaysText: string): string | null {
   if (!name.trim()) return "Name is required";
-  if (!/^\d+$/.test(targetDaysText.trim())) return "Target days must be a whole number";
-  const n = Number(targetDaysText.trim());
+  const n = parseTargetDays(targetDaysText);
+  if (Number.isNaN(n)) return "Target days must be a whole number";
   if (n < 1 || n > 365) return "Target days must be between 1 and 365";
   return null;
+}
+
+/** "3/30 days", "1/1 day", "0/1 day". */
+export function progressLabel(challenge: Challenge): string {
+  const done = new Set(challenge.checkIns).size;
+  return `${done}/${challenge.targetDays} ${challenge.targetDays === 1 ? "day" : "days"}`;
 }
 
 export function sampleChallenges(today: string): Challenge[] {
