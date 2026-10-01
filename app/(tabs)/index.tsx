@@ -1,125 +1,145 @@
-import { StyleSheet, Text, View, ScrollView, Pressable } from "react-native";
+import { useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import {
+  currentStreak,
+  isChallenge,
+  isComplete,
+  longestStreak,
+  parseTargetDays,
+  progress,
+  progressLabel,
+  sampleChallenges,
+  toggleCheckIn,
+  validateChallenge,
+  type Challenge,
+} from "../../lib/challenges";
+import { listCodec } from "../../lib/persist";
+import { usePersistentState } from "../../lib/usePersistentState";
 
-export default function HomeScreen() {
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Challenges</Text>
-        <Text style={styles.subtitle}>Challenges — Mobile app (expo)</Text>
-      </View>
+const challengesCodec = listCodec(isChallenge);
 
-      <View style={styles.cardGrid}>
-        <FeatureCard
-          icon="rocket"
-          title="Getting Started"
-          description="Welcome to the mobile version. Start building your experience."
-        />
-        <FeatureCard
-          icon="code"
-          title="Tech Stack"
-          description="Built with Expo, React Native, and TypeScript."
-        />
-        <FeatureCard
-          icon="phone-portrait"
-          title="Cross-Platform"
-          description="Runs on iOS, Android, and Web from a single codebase."
-        />
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Part of Chaowalit Greepoke's 101 Portfolio Projects
-        </Text>
-        <Link href="https://bookchaowalit.com" asChild>
-          <Pressable>
-            <Text style={styles.link}>bookchaowalit.com</Text>
-          </Pressable>
-        </Link>
-      </View>
-    </ScrollView>
-  );
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-}) {
+export default function ChallengesScreen() {
+  const today = todayKey();
+  const [challenges, setChallenges] = usePersistentState<Challenge[]>(
+    "challenges.list.v1",
+    sampleChallenges(today),
+    challengesCodec,
+  );
+
+  const [name, setName] = useState("");
+  const [target, setTarget] = useState("30");
+  const [error, setError] = useState<string | null>(null);
+
+  const update = (next: Challenge) => setChallenges(challenges.map((c) => (c.id === next.id ? next : c)));
+
+  const add = () => {
+    const problem = validateChallenge(name, target);
+    setError(problem);
+    if (problem) return;
+    setChallenges([...challenges, { id: `${Date.now()}`, name: name.trim(), targetDays: parseTargetDays(target), checkIns: [] }]);
+    setName("");
+  };
+
   return (
-    <View style={styles.card}>
-      <Ionicons name={icon} size={28} color="#4A90D9" />
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={styles.cardDescription}>{description}</Text>
-    </View>
+    <FlatList
+      style={styles.container}
+      data={challenges}
+      keyExtractor={(c) => c.id}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <View style={styles.form}>
+          <Text style={styles.formTitle}>New challenge</Text>
+          <View style={styles.formRow}>
+            <TextInput
+              style={[styles.input, styles.flex]}
+              placeholder="e.g. Walk 10k steps"
+              value={name}
+              onChangeText={setName}
+              accessibilityLabel="Challenge name"
+            />
+            <TextInput
+              style={[styles.input, styles.days]}
+              keyboardType="number-pad"
+              value={target}
+              onChangeText={setTarget}
+              accessibilityLabel="Target days"
+            />
+            <Pressable style={styles.addButton} onPress={add} accessibilityRole="button" accessibilityLabel="Add challenge">
+              <Ionicons name="add" size={24} color="#fff" />
+            </Pressable>
+          </View>
+          {error && <Text style={styles.error}>{error}</Text>}
+        </View>
+      }
+      renderItem={({ item }) => {
+        const done = item.checkIns.includes(today);
+        const pct = progress(item);
+        const streak = currentStreak(item.checkIns, today);
+        return (
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.name}>{item.name}</Text>
+              {isComplete(item) && <Ionicons name="trophy" size={20} color="#C9A227" accessibilityLabel="Completed" />}
+            </View>
+            <View
+              style={styles.track}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 0, max: item.targetDays, now: new Set(item.checkIns).size }}
+            >
+              <View style={[styles.fill, { width: `${pct * 100}%` }]} />
+            </View>
+            <Text style={styles.meta}>
+              {progressLabel(item)} · 🔥 {streak} day streak · best {longestStreak(item.checkIns)}
+            </Text>
+            <View style={styles.row}>
+              <Pressable
+                style={[styles.checkButton, done && styles.checkButtonDone]}
+                onPress={() => update(toggleCheckIn(item, today))}
+                accessibilityRole="button"
+                accessibilityState={{ checked: done }}
+              >
+                <Text style={[styles.checkText, done && styles.checkTextDone]}>{done ? "Done today ✓ (undo)" : "Check in today"}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setChallenges(challenges.filter((c) => c.id !== item.id))}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${item.name}`}
+                hitSlop={10}
+              >
+                <Ionicons name="trash-outline" size={20} color="#B00020" />
+              </Pressable>
+            </View>
+          </View>
+        );
+      }}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-  },
-  header: {
-    backgroundColor: "#4A90D9",
-    padding: 24,
-    paddingTop: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.85)",
-    lineHeight: 20,
-  },
-  cardGrid: {
-    padding: 16,
-    gap: 12,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    alignItems: "center",
-    gap: 8,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  footer: {
-    padding: 24,
-    alignItems: "center",
-    gap: 8,
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#999",
-  },
-  link: {
-    fontSize: 14,
-    color: "#4A90D9",
-    fontWeight: "500",
-  },
+  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  form: { padding: 16, gap: 8 },
+  formTitle: { fontSize: 15, fontWeight: "600", color: "#333" },
+  formRow: { flexDirection: "row", gap: 8 },
+  flex: { flex: 1 },
+  days: { width: 64, textAlign: "center" },
+  input: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#ccc", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
+  addButton: { backgroundColor: "#4A90D9", borderRadius: 8, width: 48, alignItems: "center", justifyContent: "center" },
+  error: { color: "#B00020" },
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginHorizontal: 16, marginBottom: 12, gap: 8, elevation: 2 },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  name: { flex: 1, fontSize: 17, fontWeight: "600", color: "#333" },
+  track: { height: 10, backgroundColor: "#E3ECF7", borderRadius: 5, overflow: "hidden" },
+  fill: { height: "100%", backgroundColor: "#4A90D9" },
+  meta: { fontSize: 13, color: "#666" },
+  checkButton: { flex: 1, borderWidth: 1, borderColor: "#4A90D9", borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+  checkButtonDone: { backgroundColor: "#4A90D9" },
+  checkText: { color: "#4A90D9", fontWeight: "600" },
+  checkTextDone: { color: "#fff" },
 });
